@@ -5,10 +5,26 @@
   </head>
   <body>
     <div id="root">
-      <div class="jumbotron">
-        <h1 class="display-4">RSS Reader</h1>
-        <a class="btn btn-primary btn-lg" href="#" role="button">Button</a>
+      <div class="container">
+        <div class="row">
+          <div class="col-4">
+            <div class="jumbotron">
+              <form>
+                <div class="form-group">
+                  <label for="inputUrl">Add a link:</label>
+                  <input type="text" class="form-control" id="inputURL" aria-describedby="urlError" placeholder="URL">
+                  <small id="urlError" class="form-text text-muted"></small>
+                </div>
+                <button type="submit" class="btn btn-primary" id="btnAddFeed">Add</button>
+              </form>
+            </div>
+
+            <div id="feeds"></div>
+          </div>
+          <div class="col-8" id="articles"></div>
+        </div>
       </div>
     </div>
   </body>
 </html>
+
