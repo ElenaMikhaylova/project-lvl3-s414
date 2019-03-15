@@ -52,7 +52,7 @@ const renderArticles = (state) => {
     .map((article) => {
       const { title, description, link } = article;
       return `<li class="list-group-item"><a href="${link}">${title}</a>
-        <button type="button" class="btn btn-info btn-sm" data-toggle="modal" data-target="#articleDescriptionModal" data-description="${description}">...</button></li>`;
+        <button type="button" class="btn btn-info btn-sm" data-toggle="modal" data-target="#articleDescriptionModal" data-description='${description}'>...</button></li>`;
     })
     .join('');
   divArticles.innerHTML = `<ul class="list-group">${html}</ul>`;
@@ -65,12 +65,12 @@ const parseXml = (xml) => {
   if (parserError) {
     return null;
   }
-  const items = [...doc.querySelectorAll('item')].reduce((acc, item) => {
-    const title = item.querySelector('title').textContent;
-    const description = item.querySelector('description').textContent;
-    const link = item.querySelector('link').textContent;
-    return [...acc, { title, description, link }];
-  }, []);
+  const items = [...doc.querySelectorAll('item')].map(item => ({
+    title: item.querySelector('title').textContent,
+    description: item.querySelector('description').textContent,
+    link: item.querySelector('link').textContent,
+    pubDate: new Date(item.querySelector('pubDate').textContent),
+  }));
   return {
     title: doc.querySelector('channel > title').textContent,
     description: doc.querySelector('channel > description').textContent,
@@ -85,6 +85,8 @@ export default () => {
     feeds: [],
     articles: [],
   };
+
+  const CORSproxy = 'https://cors-anywhere.herokuapp.com/';
 
   watch(state, 'formState', () => renderForm(state));
   watch(state, 'error', () => renderError(state));
@@ -108,12 +110,24 @@ export default () => {
     }
   });
 
+  const updateArticles = (link, maxPubDate) => {
+    axios.get(`${CORSproxy}${link}`)
+      .then((response) => {
+        const { items } = parseXml(response.data);
+        const newItems = items.filter(item => item.pubDate > maxPubDate);
+        const newMaxPubDate = _.max(newItems.map(({ pubDate }) => pubDate));
+        state.articles = [...newItems, ...state.articles];
+        setTimeout(() => updateArticles(link, newMaxPubDate), 5000);
+      })
+      .catch(() => setTimeout(() => updateArticles(link, maxPubDate), 5000));
+  };
+
   const btnAddFeed = document.getElementById('btnAddFeed');
   btnAddFeed.addEventListener('click', (event) => {
     event.preventDefault();
     const link = inputURL.value;
     state.formState = 'waiting';
-    axios.get(`https://cors-anywhere.herokuapp.com/${link}`)
+    axios.get(`${CORSproxy}${link}`)
       .then((response) => {
         const feed = parseXml(response.data);
         if (!feed) {
@@ -122,9 +136,12 @@ export default () => {
         } else {
           const { title, description, items } = feed;
           state.feeds = [...state.feeds, { title, description, link }];
-          state.articles = [...state.articles, ...items];
+          state.articles = [...items, ...state.articles];
           state.formState = 'empty';
           state.error = null;
+
+          const maxPubDate = _.max(items.map(({ pubDate }) => pubDate));
+          setTimeout(() => updateArticles(link, maxPubDate), 5000);
         }
       })
       .catch((error) => {
